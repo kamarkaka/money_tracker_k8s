@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: money-tracker-ui
+  name: money-tracker-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: money-tracker-ui
+  template:
+    metadata:
+      labels:
+        app: money-tracker-ui
+    spec:
+      containers:
+        - name: money-tracker-ui
+          image: kamarkaka4/money-tracker-ui:1.0.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 4173
+              protocol: TCP
+          env:
+            - name: PORT
+              value: '4173'
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: money-tracker-ui
+  labels:
+    app: money-tracker-ui
+spec:
+  type: NodePort
+  ports:
+    - port: 4173
+      targetPort: 4173
+      nodePort: 30002
+  selector:
+    app: money-tracker-ui

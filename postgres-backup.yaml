@@ -1,0 +1,65 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  labels:
+    app: postgres-backup
+  name: postgres-backup
+spec:
+  schedule: "30 6 * * *"
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: postgres-backup
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: postgres-backup
+              image: postgres
+              imagePullPolicy: IfNotPresent
+              command: ["/bin/sh", "-c"]
+              args:
+                - echo $PGPASS_APP_UPDATER > /root/.pgpass;
+                  chmod 600 /root/.pgpass;
+                  filename=backup_app_updater_$(date '+%Y_%m_%d_%H_%M').sql;
+                  pg_dump -h postgres -U $POSTGRES_USER -d app_updater > /var/backup/$filename;
+                  gzip -f /var/backup/$filename;
+                  rm /root/.pgpass;
+                  echo $PGPASS_MONEY_TRACKER > /root/.pgpass;
+                  chmod 600 /root/.pgpass;
+                  filename=backup_money_tracker_$(date '+%Y_%m_%d_%H_%M').sql;
+                  pg_dump -h postgres -U $POSTGRES_USER -d money_tracker > /var/backup/$filename;
+                  gzip -f /var/backup/$filename;
+              env:
+                - name: POSTGRES_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secrets
+                      key: username
+                - name: POSTGRES_PASSWORD
+                  value: '123456'
+                - name: PGPASS_APP_UPDATER
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secrets
+                      key: pgpass_app_updater
+                - name: PGPASS_MONEY_TRACKER
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secrets
+                      key: pgpass_money_tracker
+              resources:
+                limits:
+                  cpu: 500m
+                  memory: 200Mi
+                requests:
+                  cpu: 250m
+                  memory: 100Mi
+              volumeMounts:
+                - mountPath: /var/backup
+                  name: postgres-backup-data
+          volumes:
+            - name: postgres-backup-data
+              persistentVolumeClaim:
+                claimName: postgres-backup-pvc
